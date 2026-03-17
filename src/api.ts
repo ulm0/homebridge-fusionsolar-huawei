@@ -398,10 +398,110 @@ export class WebAccountApiClient implements FusionSolarApi {
     this.cookies.clear();
     this.roarand = null;
 
+    const base = `https://${this.fullSubdomain}.fusionsolar.huawei.com`;
+
+    // Try the new portal login flow first (/rest/dp/uidm/unisso/v1/validate-user)
+    const newFlowSuccess = await this.tryNewPortalLogin(base);
+
+    if (!newFlowSuccess) {
+      await this.trySsoLogin();
+    }
+
+    const keepAliveUrl = `${base}/rest/dpcloud/auth/v1/keep-alive`;
+    await this.httpGet(keepAliveUrl);
+
+    const companyUrl =
+      `${base}/rest/neteco/web/organization/v2/company/current?_=${Date.now()}`;
+    const companyResponse = await this.httpGet(companyUrl);
+    const companyData = await companyResponse.json() as {
+      data?: { moDn?: string };
+    };
+
+    if (!companyData.data?.moDn) {
+      throw new Error('Failed to retrieve company info. Check your region/subdomain.');
+    }
+
+    this.companyId = companyData.data.moDn;
+
+    const sessionUrl = `${base}/unisess/v1/auth/session`;
+    const sessionResponse = await this.httpGet(sessionUrl);
+    const sessionData = await sessionResponse.json() as { csrfToken?: string };
+    if (sessionData.csrfToken) {
+      this.roarand = sessionData.csrfToken;
+    }
+
+    this.log.info('Authenticated successfully with FusionSolar web account');
+  }
+
+  private async tryNewPortalLogin(base: string): Promise<boolean> {
+    const svc = encodeURIComponent('/rest/dp/uidm/auth/v1/on-sso-credential-ready');
+    const url = `${base}/rest/dp/uidm/unisso/v1/validate-user?service=${svc}`;
+
+    this.log.debug('Trying new portal login flow...');
+    const response = await this.httpPost(url, {
+      username: this.username,
+      password: this.password,
+      verifycode: '',
+    });
+
+    let result: {
+      code?: number;
+      payload?: {
+        exceptionId?: string;
+        exceptionMessage?: string;
+        redirectURL?: string;
+      };
+    };
+
+    try {
+      result = await response.json() as typeof result;
+    } catch {
+      this.log.debug('New portal login returned non-JSON, falling back to SSO flow');
+      return false;
+    }
+
+    if (result.code === 0 && result.payload?.redirectURL) {
+      this.log.debug('New portal login successful, following redirect...');
+      await this.httpGet(result.payload.redirectURL);
+      return true;
+    }
+
+    if (result.code === -1 && result.payload?.exceptionId) {
+      const exId = result.payload.exceptionId;
+      const exMsg = result.payload.exceptionMessage ?? 'unknown error';
+
+      if (exId === '406') {
+        throw new Error('Login failed: invalid username or password');
+      }
+
+      throw new Error(`Login failed: ${exMsg} (${exId})`);
+    }
+
+    this.log.debug('New portal login not available, falling back to SSO flow');
+    return false;
+  }
+
+  private async trySsoLogin(): Promise<void> {
     const pubKeyUrl =
       `https://${this.loginSubdomain}.fusionsolar.huawei.com/unisso/pubkey`;
+    this.log.debug(`Fetching public key from ${pubKeyUrl}`);
     const pubKeyResponse = await this.httpGet(pubKeyUrl);
-    const pubKeyData = await pubKeyResponse.json() as PubKeyResponse;
+
+    const pubKeyText = await pubKeyResponse.text();
+    if (pubKeyText.trimStart().startsWith('<')) {
+      throw new Error(
+        `Region "${this.fullSubdomain}" returned HTML instead of JSON. `
+        + 'This usually means the region is incorrect for web account login. '
+        + 'Try a different region.',
+      );
+    }
+
+    let pubKeyData: PubKeyResponse;
+    try {
+      pubKeyData = JSON.parse(pubKeyText) as PubKeyResponse;
+    } catch {
+      throw new Error('Failed to parse public key response from FusionSolar');
+    }
 
     let loginUrl: string;
     const params = new URLSearchParams();
@@ -445,35 +545,6 @@ export class WebAccountApiClient implements FusionSolarApi {
     } else if (loginResult.errorMsg) {
       throw new Error(`Login failed: ${loginResult.errorMsg}`);
     }
-
-    const keepAliveUrl =
-      `https://${this.fullSubdomain}.fusionsolar.huawei.com`
-      + '/rest/dpcloud/auth/v1/keep-alive';
-    await this.httpGet(keepAliveUrl);
-
-    const companyUrl =
-      `https://${this.fullSubdomain}.fusionsolar.huawei.com`
-      + `/rest/neteco/web/organization/v2/company/current?_=${Date.now()}`;
-    const companyResponse = await this.httpGet(companyUrl);
-    const companyData = await companyResponse.json() as {
-      data?: { moDn?: string };
-    };
-
-    if (!companyData.data?.moDn) {
-      throw new Error('Failed to retrieve company info. Check your region/subdomain.');
-    }
-
-    this.companyId = companyData.data.moDn;
-
-    const sessionUrl =
-      `https://${this.fullSubdomain}.fusionsolar.huawei.com/unisess/v1/auth/session`;
-    const sessionResponse = await this.httpGet(sessionUrl);
-    const sessionData = await sessionResponse.json() as { csrfToken?: string };
-    if (sessionData.csrfToken) {
-      this.roarand = sessionData.csrfToken;
-    }
-
-    this.log.info('Authenticated successfully with FusionSolar web account');
   }
 
   async getStations(): Promise<Station[]> {

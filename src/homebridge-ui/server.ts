@@ -246,54 +246,113 @@ async function webAccountLogin(
     return resp;
   }
 
-  const pubKeyResp = await httpGet(
-    `https://${loginSub}.fusionsolar.huawei.com/unisso/pubkey`,
-  );
-  if (!pubKeyResp.ok) {
-    throw new RequestError('Failed to connect to FusionSolar', { status: pubKeyResp.status });
-  }
-  const pubKeyData = await pubKeyResp.json() as PubKeyResponse;
+  const base = `https://${fullSub}.fusionsolar.huawei.com`;
 
-  let loginUrl: string;
-  const params = new URLSearchParams();
-  let encPass: string;
+  // Try new portal login first (/rest/dp/uidm/unisso/v1/validate-user)
+  const svc = encodeURIComponent('/rest/dp/uidm/auth/v1/on-sso-credential-ready');
+  const newLoginUrl = `${base}/rest/dp/uidm/unisso/v1/validate-user?service=${svc}`;
+  const newLoginResp = await httpPost(newLoginUrl, {
+    username,
+    password,
+    verifycode: '',
+  });
 
-  if (pubKeyData.enableEncrypt) {
-    loginUrl = `https://${loginSub}.fusionsolar.huawei.com/unisso/v3/validateUser.action`;
-    params.set('timeStamp', pubKeyData.timeStamp);
-    params.set('nonce', crypto.randomBytes(16).toString('hex'));
-    encPass = encryptPassword(pubKeyData.pubKey, password) + pubKeyData.version;
-  } else {
-    loginUrl = `https://${loginSub}.fusionsolar.huawei.com/unisso/v2/validateUser.action`;
-    params.set('decision', '1');
-    params.set(
-      'service',
-      `https://${fullSub}.fusionsolar.huawei.com`
-        + '/unisess/v1/auth?service=/netecowebext/home/index.html#/LOGIN',
-    );
-    encPass = password;
-  }
-
-  const loginResp = await httpPost(
-    `${loginUrl}?${params.toString()}`,
-    { organizationName: '', username, password: encPass },
-  );
-
-  let loginResult: ValidateUserResponse;
+  let usedNewFlow = false;
   try {
-    loginResult = await loginResp.json() as ValidateUserResponse;
-  } catch {
-    throw new RequestError('Login failed — invalid response from server', { status: 500 });
+    const newResult = await newLoginResp.json() as {
+      code?: number;
+      payload?: {
+        exceptionId?: string;
+        exceptionMessage?: string;
+        redirectURL?: string;
+      };
+    };
+
+    if (newResult.code === 0 && newResult.payload?.redirectURL) {
+      await httpGet(newResult.payload.redirectURL);
+      usedNewFlow = true;
+    } else if (newResult.code === -1 && newResult.payload?.exceptionId) {
+      const exId = newResult.payload.exceptionId;
+      if (exId === '406') {
+        throw new RequestError('Login failed: invalid username or password', { status: 401 });
+      }
+      throw new RequestError(
+        `Login failed: ${newResult.payload.exceptionMessage ?? 'unknown error'} (${exId})`,
+        { status: 401 },
+      );
+    }
+  } catch (e) {
+    if (e instanceof RequestError) {
+      throw e;
+    }
   }
 
-  if (loginResult.errorCode === '470' && loginResult.respMultiRegionName) {
-    if (loginResult.respMultiRegionName.length < 2) {
-      throw new RequestError('Login failed: invalid redirect response', { status: 500 });
+  // Fallback to SSO login if the new flow didn't work
+  if (!usedNewFlow) {
+    const pubKeyResp = await httpGet(
+      `https://${loginSub}.fusionsolar.huawei.com/unisso/pubkey`,
+    );
+    if (!pubKeyResp.ok) {
+      throw new RequestError('Failed to connect to FusionSolar', { status: pubKeyResp.status });
     }
-    const redirect = loginResult.respMultiRegionName[1];
-    await httpGet(`https://${loginSub}.fusionsolar.huawei.com${redirect}`);
-  } else if (loginResult.errorMsg) {
-    throw new RequestError(`Login failed: ${loginResult.errorMsg}`, { status: 401 });
+
+    const pubKeyText = await pubKeyResp.text();
+    if (pubKeyText.trimStart().startsWith('<')) {
+      throw new RequestError(
+        'This region returned an HTML page instead of JSON. '
+        + 'Try a different region.',
+        { status: 400 },
+      );
+    }
+
+    let pubKeyData: PubKeyResponse;
+    try {
+      pubKeyData = JSON.parse(pubKeyText) as PubKeyResponse;
+    } catch {
+      throw new RequestError('Failed to parse login response from FusionSolar', { status: 500 });
+    }
+
+    let loginUrl: string;
+    const params = new URLSearchParams();
+    let encPass: string;
+
+    if (pubKeyData.enableEncrypt) {
+      loginUrl = `https://${loginSub}.fusionsolar.huawei.com/unisso/v3/validateUser.action`;
+      params.set('timeStamp', pubKeyData.timeStamp);
+      params.set('nonce', crypto.randomBytes(16).toString('hex'));
+      encPass = encryptPassword(pubKeyData.pubKey, password) + pubKeyData.version;
+    } else {
+      loginUrl = `https://${loginSub}.fusionsolar.huawei.com/unisso/v2/validateUser.action`;
+      params.set('decision', '1');
+      params.set(
+        'service',
+        `https://${fullSub}.fusionsolar.huawei.com`
+          + '/unisess/v1/auth?service=/netecowebext/home/index.html#/LOGIN',
+      );
+      encPass = password;
+    }
+
+    const loginResp = await httpPost(
+      `${loginUrl}?${params.toString()}`,
+      { organizationName: '', username, password: encPass },
+    );
+
+    let loginResult: ValidateUserResponse;
+    try {
+      loginResult = await loginResp.json() as ValidateUserResponse;
+    } catch {
+      throw new RequestError('Login failed — invalid response from server', { status: 500 });
+    }
+
+    if (loginResult.errorCode === '470' && loginResult.respMultiRegionName) {
+      if (loginResult.respMultiRegionName.length < 2) {
+        throw new RequestError('Login failed: invalid redirect response', { status: 500 });
+      }
+      const redirect = loginResult.respMultiRegionName[1];
+      await httpGet(`https://${loginSub}.fusionsolar.huawei.com${redirect}`);
+    } else if (loginResult.errorMsg) {
+      throw new RequestError(`Login failed: ${loginResult.errorMsg}`, { status: 401 });
+    }
   }
 
   await httpGet(
