@@ -2,7 +2,7 @@
   "name": "homebridge-fusionsolar-huawei",
   "displayName": "FusionSolar Huawei for Homebridge",
   "type": "module",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": false,
   "description": "Homebridge plugin for Huawei FusionSolar — supports both residential accounts and the Northbound API",
   "license": "Apache-2.0",
