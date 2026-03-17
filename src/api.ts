@@ -462,7 +462,10 @@ export class WebAccountApiClient implements FusionSolarApi {
 
     if (result.code === 0 && result.payload?.redirectURL) {
       this.log.debug('New portal login successful, following redirect...');
-      await this.httpGet(result.payload.redirectURL);
+      const redirectUrl = result.payload.redirectURL.startsWith('http')
+        ? result.payload.redirectURL
+        : `${base}${result.payload.redirectURL}`;
+      await this.httpGet(redirectUrl);
       return true;
     }
 

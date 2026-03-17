@@ -269,7 +269,10 @@ async function webAccountLogin(
     };
 
     if (newResult.code === 0 && newResult.payload?.redirectURL) {
-      await httpGet(newResult.payload.redirectURL);
+      const redir = newResult.payload.redirectURL.startsWith('http')
+        ? newResult.payload.redirectURL
+        : `${base}${newResult.payload.redirectURL}`;
+      await httpGet(redir);
       usedNewFlow = true;
     } else if (newResult.code === -1 && newResult.payload?.exceptionId) {
       const exId = newResult.payload.exceptionId;
