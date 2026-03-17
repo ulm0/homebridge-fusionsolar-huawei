@@ -1,0 +1,77 @@
+{
+  "pluginAlias": "HomebridgeFusionsolarHuawei",
+  "pluginType": "platform",
+  "singular": true,
+  "customUi": true,
+  "customUiPath": "./dist/homebridge-ui",
+  "headerDisplay": "Sign in with your FusionSolar account above, then configure settings below.",
+  "schema": {
+    "type": "object",
+    "required": ["name", "userName", "systemCode"],
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "FusionSolar"
+      },
+      "authMode": {
+        "title": "Authentication mode",
+        "type": "string",
+        "default": "account",
+        "oneOf": [
+          { "title": "Account (email + password)", "enum": ["account"] },
+          { "title": "Northbound API", "enum": ["northbound"] }
+        ]
+      },
+      "appUrl": {
+        "title": "FusionSolar API region",
+        "type": "string",
+        "default": "https://intl.fusionsolar.huawei.com",
+        "oneOf": [
+          { "title": "International", "enum": ["https://intl.fusionsolar.huawei.com"] },
+          { "title": "Europe — region01eu5", "enum": ["https://region01eu5.fusionsolar.huawei.com"] },
+          { "title": "Europe — uni001eu5", "enum": ["https://uni001eu5.fusionsolar.huawei.com"] },
+          { "title": "Europe — eu5", "enum": ["https://eu5.fusionsolar.huawei.com"] },
+          { "title": "Latin America (la5)", "enum": ["https://la5.fusionsolar.huawei.com"] },
+          { "title": "Asia Pacific (apac5)", "enum": ["https://apac5.fusionsolar.huawei.com"] },
+          { "title": "Middle East & Africa (mea5)", "enum": ["https://mea5.fusionsolar.huawei.com"] }
+        ]
+      },
+      "userName": {
+        "title": "Username / Email",
+        "type": "string"
+      },
+      "systemCode": {
+        "title": "Password",
+        "type": "string",
+        "x-schema-form": { "type": "password" }
+      },
+      "stationCode": {
+        "title": "Station code",
+        "type": "string"
+      },
+      "pollInterval": {
+        "title": "Poll interval (minutes)",
+        "description": "How often to fetch data from the API. Minimum 1 minute.",
+        "type": "integer",
+        "default": 5,
+        "minimum": 1
+      },
+      "batteryLowLevelPercentage": {
+        "title": "Battery low level threshold (%)",
+        "description": "Battery level below this percentage will be reported as low.",
+        "type": "integer",
+        "default": 20,
+        "minimum": 1,
+        "maximum": 100
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "Settings",
+      "items": ["pollInterval", "batteryLowLevelPercentage"]
+    }
+  ]
+}

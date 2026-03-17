@@ -1,0 +1,582 @@
+<style>
+  .fs-container {
+    max-width: 480px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .fs-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .fs-header svg { flex-shrink: 0; }
+  .fs-header h4 { margin: 0; font-weight: 600; }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.82em;
+    font-weight: 500;
+  }
+
+  .status-badge::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .status-connected {
+    background: rgba(25, 135, 84, 0.12);
+    color: #198754;
+  }
+  .status-connected::before { background: #198754; }
+
+  .status-disconnected {
+    background: rgba(220, 53, 69, 0.12);
+    color: #dc3545;
+  }
+  .status-disconnected::before { background: #dc3545; }
+
+  .alert-error {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.25);
+    color: #dc3545;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 0.9em;
+  }
+
+  .alert-success {
+    background: rgba(25, 135, 84, 0.1);
+    border: 1px solid rgba(25, 135, 84, 0.25);
+    color: #198754;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 0.9em;
+  }
+
+  .alert-info {
+    background: rgba(13, 110, 253, 0.06);
+    border: 1px solid rgba(13, 110, 253, 0.15);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 0.85em;
+  }
+
+  .fs-label {
+    display: block;
+    font-size: 0.88em;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .fs-input, .fs-select {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-size: 0.95em;
+    background: #fff;
+    color: #212529;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+
+  .fs-input:focus, .fs-select:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+  }
+
+  .fs-input:disabled, .fs-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .fs-hint {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 4px;
+  }
+
+  .fs-field { margin-bottom: 14px; }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 16px;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-primary:hover { background: #0b5ed7; }
+  .btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    color: inherit;
+    transition: border-color 0.15s;
+  }
+
+  .btn-outline:hover { border-color: #86b7fe; }
+
+  .btn-danger-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+    color: #dc3545;
+    transition: background 0.15s;
+  }
+
+  .btn-danger-outline:hover { background: rgba(220, 53, 69, 0.08); }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fs-station-list { max-height: 200px; overflow-y: auto; }
+
+  .fs-station-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .fs-station-item:hover { background: rgba(0, 0, 0, 0.04); }
+  .fs-station-item.selected {
+    background: rgba(13, 110, 253, 0.08);
+    outline: 1px solid rgba(13, 110, 253, 0.3);
+  }
+
+  .fs-station-name { font-weight: 500; font-size: 0.95em; }
+  .fs-station-meta { font-size: 0.82em; opacity: 0.65; }
+
+  .fs-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .fs-input, .fs-select {
+      background: #2b2b2b;
+      border-color: #444;
+      color: #e0e0e0;
+    }
+    .fs-input:focus, .fs-select:focus {
+      border-color: #5a9bff;
+      box-shadow: 0 0 0 3px rgba(90, 155, 255, 0.2);
+    }
+    .fs-hint { color: #999; }
+    .alert-info {
+      background: rgba(90, 155, 255, 0.08);
+      border-color: rgba(90, 155, 255, 0.2);
+      color: #8cb4ff;
+    }
+    .alert-error {
+      background: rgba(220, 53, 69, 0.12);
+      border-color: rgba(220, 53, 69, 0.3);
+      color: #f08090;
+    }
+    .alert-success {
+      background: rgba(25, 135, 84, 0.12);
+      border-color: rgba(25, 135, 84, 0.3);
+      color: #6fcf97;
+    }
+    .status-connected {
+      background: rgba(25, 135, 84, 0.15);
+      color: #6fcf97;
+    }
+    .status-connected::before { background: #6fcf97; }
+    .status-disconnected {
+      background: rgba(220, 53, 69, 0.15);
+      color: #f08090;
+    }
+    .status-disconnected::before { background: #f08090; }
+    .btn-outline { border-color: #555; color: #ccc; }
+    .btn-outline:hover { border-color: #5a9bff; }
+    .btn-danger-outline { border-color: #dc3545; color: #f08090; }
+    .fs-station-item:hover { background: rgba(255, 255, 255, 0.05); }
+    .fs-station-item.selected {
+      background: rgba(90, 155, 255, 0.1);
+      outline-color: rgba(90, 155, 255, 0.35);
+    }
+  }
+</style>
+
+<div class="fs-container">
+  <div class="fs-header">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2"></path><path d="M12 20v2"></path>
+      <path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path>
+      <path d="M2 12h2"></path><path d="M20 12h2"></path>
+      <path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>
+    </svg>
+    <div>
+      <h4>FusionSolar</h4>
+      <small style="opacity:0.6">Connect your Huawei solar system to HomeKit</small>
+    </div>
+  </div>
+
+  <div id="auth-status" style="margin-bottom:16px;"></div>
+
+  <!-- STEP: Login -->
+  <div id="step-login" class="step">
+    <div id="login-error"></div>
+
+    <div class="fs-field">
+      <label class="fs-label" for="authMode">Authentication Mode</label>
+      <select id="authMode" class="fs-select">
+        <option value="account">Account (email + password)</option>
+        <option value="northbound">Northbound API</option>
+      </select>
+    </div>
+
+    <div id="modeHint" class="alert-info">
+      Sign in with the same email and password you use at <strong>fusionsolar.huawei.com</strong>
+    </div>
+
+    <div class="fs-field">
+      <label class="fs-label" for="appUrl">API Region</label>
+      <select id="appUrl" class="fs-select">
+        <option value="https://intl.fusionsolar.huawei.com">International</option>
+        <option value="https://region01eu5.fusionsolar.huawei.com">Europe — region01eu5</option>
+        <option value="https://uni001eu5.fusionsolar.huawei.com">Europe — uni001eu5</option>
+        <option value="https://eu5.fusionsolar.huawei.com">Europe — eu5</option>
+        <option value="https://la5.fusionsolar.huawei.com">Latin America (la5)</option>
+        <option value="https://apac5.fusionsolar.huawei.com">Asia Pacific (apac5)</option>
+        <option value="https://mea5.fusionsolar.huawei.com">Middle East & Africa (mea5)</option>
+      </select>
+      <div class="fs-hint">Match the URL you see when you log into FusionSolar.</div>
+    </div>
+
+    <div class="fs-field">
+      <label class="fs-label" for="userName" id="userNameLabel">Email</label>
+      <input type="email" class="fs-input" id="userName" placeholder="Enter your email" autocomplete="email">
+    </div>
+
+    <div class="fs-field">
+      <label class="fs-label" for="systemCode" id="systemCodeLabel">Password</label>
+      <input type="password" class="fs-input" id="systemCode" placeholder="Enter your password" autocomplete="current-password">
+    </div>
+
+    <button id="btnLogin" class="btn-primary" type="button">Sign In</button>
+  </div>
+
+  <!-- STEP: Station Selection -->
+  <div id="step-station" class="step">
+    <div class="alert-success">Signed in successfully. Select your station below.</div>
+    <div id="stationList" class="fs-station-list"></div>
+    <div class="fs-actions">
+      <button id="btnConfirmStation" class="btn-primary" type="button" style="flex:1">Save &amp; Continue</button>
+    </div>
+    <div class="fs-actions">
+      <button id="btnBackToLogin" class="btn-outline" type="button">Sign in with a different account</button>
+    </div>
+  </div>
+
+  <!-- STEP: Connected -->
+  <div id="step-connected" class="step">
+    <div class="alert-success">
+      Your FusionSolar account is connected. Configure additional settings below.
+    </div>
+    <div class="fs-actions">
+      <button id="btnChangeAccount" class="btn-outline" type="button">Sign in with a different account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(async () => {
+  const authMode = document.getElementById('authMode');
+  const appUrl = document.getElementById('appUrl');
+  const userName = document.getElementById('userName');
+  const systemCode = document.getElementById('systemCode');
+  const userNameLabel = document.getElementById('userNameLabel');
+  const systemCodeLabel = document.getElementById('systemCodeLabel');
+  const modeHint = document.getElementById('modeHint');
+  const btnLogin = document.getElementById('btnLogin');
+  const btnConfirmStation = document.getElementById('btnConfirmStation');
+  const btnBackToLogin = document.getElementById('btnBackToLogin');
+  const btnChangeAccount = document.getElementById('btnChangeAccount');
+  const authStatusEl = document.getElementById('auth-status');
+  const loginError = document.getElementById('login-error');
+  const stationList = document.getElementById('stationList');
+
+  let selectedStationCode = '';
+  let currentStations = [];
+
+  // --- Helpers ---
+
+  function showStep(stepId) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById(stepId).classList.add('active');
+  }
+
+  function showAuthStatus(connected, detail) {
+    const cls = connected ? 'status-connected' : 'status-disconnected';
+    const label = connected ? 'Connected' : 'Not connected';
+    const text = detail ? label + ' — ' + detail : label;
+    authStatusEl.innerHTML = '';
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + cls;
+    badge.textContent = text;
+    authStatusEl.appendChild(badge);
+  }
+
+  function showError(containerId, message) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'alert-error';
+    div.textContent = message;
+    el.appendChild(div);
+  }
+
+  function clearError(containerId) {
+    document.getElementById(containerId).innerHTML = '';
+  }
+
+  function setLoading(btn, loading) {
+    if (loading) {
+      btn.dataset.originalText = btn.textContent;
+      btn.innerHTML = '';
+      const sp = document.createElement('span');
+      sp.className = 'spinner';
+      btn.appendChild(sp);
+      btn.appendChild(document.createTextNode(' Please wait...'));
+      btn.disabled = true;
+    } else {
+      btn.textContent = btn.dataset.originalText || 'Submit';
+      btn.disabled = false;
+    }
+  }
+
+  function updateModeUI() {
+    const isAccount = authMode.value === 'account';
+    userNameLabel.textContent = isAccount ? 'Email' : 'Northbound API Username';
+    systemCodeLabel.textContent = isAccount ? 'Password' : 'System Code';
+    userName.type = isAccount ? 'email' : 'text';
+    userName.placeholder = isAccount ? 'Enter your email' : 'Enter your Northbound API username';
+    systemCode.placeholder = isAccount ? 'Enter your password' : 'Enter your system code';
+    modeHint.innerHTML = isAccount
+      ? 'Sign in with the same email and password you use at <strong>fusionsolar.huawei.com</strong>'
+      : 'Use the credentials from <strong>System &gt; Company Management &gt; Northbound Management</strong>';
+  }
+
+  function renderStations(stations) {
+    stationList.innerHTML = '';
+    for (const station of stations) {
+      const item = document.createElement('div');
+      item.className = 'fs-station-item' + (station.stationCode === selectedStationCode ? ' selected' : '');
+
+      const infoCol = document.createElement('div');
+      const nameEl = document.createElement('div');
+      nameEl.className = 'fs-station-name';
+      nameEl.textContent = station.stationName;
+      const codeEl = document.createElement('div');
+      codeEl.className = 'fs-station-meta';
+      codeEl.textContent = station.stationCode;
+      infoCol.appendChild(nameEl);
+      infoCol.appendChild(codeEl);
+
+      const capEl = document.createElement('div');
+      capEl.className = 'fs-station-meta';
+      capEl.textContent = station.capacity + ' kWp';
+
+      item.appendChild(infoCol);
+      item.appendChild(capEl);
+
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.fs-station-item').forEach(el => el.classList.remove('selected'));
+        if (selectedStationCode === station.stationCode) {
+          selectedStationCode = '';
+        } else {
+          selectedStationCode = station.stationCode;
+          item.classList.add('selected');
+        }
+      });
+
+      stationList.appendChild(item);
+    }
+  }
+
+  async function updateConfig() {
+    const pluginConfig = await homebridge.getPluginConfig();
+    const base = pluginConfig.length > 0 ? pluginConfig[0] : {};
+    const config = [{
+      ...base,
+      platform: 'HomebridgeFusionsolarHuawei',
+      name: base.name || 'FusionSolar',
+      authMode: authMode.value,
+      appUrl: appUrl.value,
+      userName: userName.value.trim(),
+      systemCode: systemCode.value,
+    }];
+
+    if (selectedStationCode) {
+      config[0].stationCode = selectedStationCode;
+    } else {
+      delete config[0].stationCode;
+    }
+
+    await homebridge.updatePluginConfig(config);
+  }
+
+  // --- Initialization ---
+
+  const existingConfig = await homebridge.getPluginConfig();
+
+  if (existingConfig.length === 0) {
+    await homebridge.updatePluginConfig([{
+      platform: 'HomebridgeFusionsolarHuawei',
+      name: 'FusionSolar',
+    }]);
+  }
+
+  if (existingConfig.length > 0) {
+    const cfg = existingConfig[0];
+    if (cfg.authMode) authMode.value = cfg.authMode;
+    if (cfg.appUrl) appUrl.value = cfg.appUrl;
+    if (cfg.userName) userName.value = cfg.userName;
+    if (cfg.systemCode) systemCode.value = cfg.systemCode;
+    if (cfg.stationCode) selectedStationCode = cfg.stationCode;
+  }
+
+  updateModeUI();
+
+  const hasCredentials = userName.value.trim() && systemCode.value;
+  if (hasCredentials) {
+    showAuthStatus(true, selectedStationCode || 'first available station');
+    showStep('step-connected');
+  } else {
+    showAuthStatus(false);
+    showStep('step-login');
+  }
+
+  homebridge.showSchemaForm();
+
+  // --- Events ---
+
+  authMode.addEventListener('change', () => { updateModeUI(); updateConfig(); });
+  appUrl.addEventListener('change', updateConfig);
+
+  systemCode.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') btnLogin.click();
+  });
+
+  btnLogin.addEventListener('click', async () => {
+    clearError('login-error');
+
+    const user = userName.value.trim();
+    const pass = systemCode.value;
+
+    if (!user || !pass) {
+      showError('login-error', 'Please enter both username/email and password.');
+      return;
+    }
+
+    setLoading(btnLogin, true);
+
+    try {
+      const result = await homebridge.request('/login', {
+        authMode: authMode.value,
+        appUrl: appUrl.value,
+        userName: user,
+        systemCode: pass,
+      });
+
+      currentStations = result.stations;
+      await updateConfig();
+
+      homebridge.toast.success('Signed in successfully!');
+
+      if (currentStations.length > 0) {
+        renderStations(currentStations);
+        showAuthStatus(true);
+        showStep('step-station');
+      } else {
+        showAuthStatus(true, 'no stations found');
+        showStep('step-connected');
+        await homebridge.savePluginConfig();
+      }
+    } catch (e) {
+      showError('login-error', e.message);
+      homebridge.toast.error(e.message, 'Sign In Failed');
+    } finally {
+      setLoading(btnLogin, false);
+    }
+  });
+
+  btnConfirmStation.addEventListener('click', async () => {
+    await updateConfig();
+    await homebridge.savePluginConfig();
+    homebridge.toast.success('Configuration saved!');
+    showAuthStatus(true, selectedStationCode || 'first available station');
+    showStep('step-connected');
+  });
+
+  btnBackToLogin.addEventListener('click', () => {
+    showStep('step-login');
+  });
+
+  btnChangeAccount.addEventListener('click', () => {
+    showAuthStatus(false);
+    showStep('step-login');
+  });
+})();
+</script>

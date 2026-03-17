@@ -1,0 +1,54 @@
+{
+  "name": "homebridge-fusionsolar-huawei",
+  "displayName": "FusionSolar Huawei for Homebridge",
+  "type": "module",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Homebridge plugin for Huawei FusionSolar — supports both residential accounts and the Northbound API",
+  "license": "Apache-2.0",
+  "author": "ulm0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ulm0/homebridge-fusionsolar-huawei.git"
+  },
+  "homepage": "https://github.com/ulm0/homebridge-fusionsolar-huawei#readme",
+  "bugs": {
+    "url": "https://github.com/ulm0/homebridge-fusionsolar-huawei/issues"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "fusionsolar",
+    "huawei",
+    "solar",
+    "battery"
+  ],
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json"
+  ],
+  "engines": {
+    "node": "^20.18.0 || ^22.10.0 || ^24.0.0",
+    "homebridge": "^1.11.0 || ^2.0.0-beta.0"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc && tsc -p tsconfig.ui.json && cp -r src/homebridge-ui/public dist/homebridge-ui/public",
+    "lint": "eslint . --max-warnings=0",
+    "prepublishOnly": "npm run lint && npm run build",
+    "watch": "npm run build && npm link && nodemon"
+  },
+  "dependencies": {
+    "@homebridge/plugin-ui-utils": "^2.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.5",
+    "eslint": "^9.21.0",
+    "homebridge": "^2.0.0-beta.0",
+    "nodemon": "^3.1.9",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.1"
+  }
+}
