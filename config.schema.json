@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "HomebridgeFusionsolar",
+  "pluginAlias": "HomebridgeFusionsolarHuawei",
   "pluginType": "platform",
   "singular": true,
   "strictValidation": false,
@@ -10,13 +10,13 @@
         "title": "Name",
         "type": "string",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "FusionSolar Huawei"
       },
       "appUrl": {
         "title": "FusionSolar app url",
         "type": "string",
         "required": false,
-        "default": "https://eu5.fusionsolar.huawei.com"
+        "default": "https://la5.fusionsolar.huawei.com"
       },
       "login": {
         "title": "FusionSolar app login",
