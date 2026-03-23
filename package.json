@@ -2,7 +2,7 @@
   "name": "homebridge-fusionsolar-huawei",
   "displayName": "Homebridge FusionSolar",
   "type": "module",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": false,
   "description": "FusionSolar homebridge integration",
   "author": "Mateusz Tofilski",
