@@ -45,7 +45,7 @@
     "@eslint/js": "^9.21.0",
     "@types/node": "^25.5.0",
     "@types/random-useragent": "^0.3.3",
-    "eslint": "^9.21.0",
+    "eslint": "^10.1.0",
     "homebridge": "^1.11.3",
     "nodemon": "^3.1.9",
     "rimraf": "^6.0.1",
