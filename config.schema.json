@@ -30,9 +30,9 @@
       },
       "batteryLowLevelPercentage": {
         "title": "Battery low level threshold [%]",
-        "type": "string",
+        "type": "number",
         "required": false,
-        "default:": "20"
+        "default": 20
       },
       "executablePath": {
         "title": "Chromium/Chrome executable path",
