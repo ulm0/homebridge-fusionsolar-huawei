@@ -33,6 +33,13 @@
         "type": "string",
         "required": false,
         "default:": "20"
+      },
+      "executablePath": {
+        "title": "Chromium/Chrome executable path",
+        "type": "string",
+        "required": false,
+        "description": "Path to the Chromium or Chrome browser executable. Leave empty to auto-detect.",
+        "placeholder": "/usr/bin/chromium-browser"
       }
     }
   }

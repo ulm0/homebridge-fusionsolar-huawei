@@ -48,160 +48,169 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
     (async () => {
       const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36';
 
-      this.browser = await puppeteer.launch({
-        headless: true,
-        executablePath: '/usr/bin/chromium-browser',
-        devtools: false,
-        slowMo: 0,
-        args: ['--disable-gpu','--no-sandbox','--no-zygote','--disable-setuid-sandbox',
-          '--disable-accelerated-2d-canvas','--disable-dev-shm-usage', '--proxy-server=\'direct://\'',
-          '--proxy-bypass-list=*'],
-        userDataDir: './user_data',
-      });
-
-      const userAgent = randomUseragent.getRandom();
-      const UA = userAgent || USER_AGENT;
-
-      const page = await this.browser!.newPage();
-      await page.setViewport({
-        width: 1920 + Math.floor(Math.random() * 100),
-        height: 3000 + Math.floor(Math.random() * 100),
-        deviceScaleFactor: 1,
-        hasTouch: false,
-        isLandscape: false,
-        isMobile: false,
-      });
-      await page.setUserAgent(UA);
-      await page.setJavaScriptEnabled(true);
-      await page.setDefaultNavigationTimeout(0);
-
-      await page.evaluateOnNewDocument(() => {
-        // Pass webdriver check
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => false,
+      try {
+        this.browser = await puppeteer.launch({
+          headless: true,
+          ...(this.config.executablePath ? { executablePath: this.config.executablePath } : {}),
+          devtools: false,
+          slowMo: 0,
+          args: ['--disable-gpu','--no-sandbox','--no-zygote','--disable-setuid-sandbox',
+            '--disable-accelerated-2d-canvas','--disable-dev-shm-usage', '--proxy-server=\'direct://\'',
+            '--proxy-bypass-list=*'],
+          userDataDir: './user_data',
         });
-      });
 
-      await page.evaluateOnNewDocument(() => {
-        // Overwrite the `plugins` property to use a custom getter.
-        Object.defineProperty(navigator, 'plugins', {
-          // This just needs to have `length > 0` for the current test,
-          // but we could mock the plugins too if necessary.
-          get: () => [1, 2, 3, 4, 5],
+        const userAgent = randomUseragent.getRandom();
+        const UA = userAgent || USER_AGENT;
+
+        const page = await this.browser!.newPage();
+        await page.setViewport({
+          width: 1920 + Math.floor(Math.random() * 100),
+          height: 3000 + Math.floor(Math.random() * 100),
+          deviceScaleFactor: 1,
+          hasTouch: false,
+          isLandscape: false,
+          isMobile: false,
         });
-      });
+        await page.setUserAgent(UA);
+        await page.setJavaScriptEnabled(true);
+        await page.setDefaultNavigationTimeout(0);
 
-      await page.evaluateOnNewDocument(() => {
-        // Overwrite the `languages` property to use a custom getter.
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['en-US', 'en'],
+        await page.evaluateOnNewDocument(() => {
+          // Pass webdriver check
+          Object.defineProperty(navigator, 'webdriver', {
+            get: () => false,
+          });
         });
-      });
 
-      await page.goto(String(this.config.appUrl) + '/unisso/login.action', {
-        waitUntil: 'networkidle0',
-      });
+        await page.evaluateOnNewDocument(() => {
+          // Overwrite the `plugins` property to use a custom getter.
+          Object.defineProperty(navigator, 'plugins', {
+            // This just needs to have `length > 0` for the current test,
+            // but we could mock the plugins too if necessary.
+            get: () => [1, 2, 3, 4, 5],
+          });
+        });
 
-      await page.waitForSelector('input[id="username"]');
-      await page.type('input[id="username"]', String(this.config.login));
-      await page.waitForSelector('input[id="value"]');
-      await page.type('input[id="value"]', String(this.config.password));
-      await page.click('#submitDataverify');
-      await page.waitForNavigation();
+        await page.evaluateOnNewDocument(() => {
+          // Overwrite the `languages` property to use a custom getter.
+          Object.defineProperty(navigator, 'languages', {
+            get: () => ['en-US', 'en'],
+          });
+        });
 
-      this.log.debug('Logged in!');
+        await page.goto(String(this.config.appUrl) + '/unisso/login.action', {
+          waitUntil: 'networkidle0',
+        });
 
-      // enable request interception
-      await page.setRequestInterception(true);
+        await page.waitForSelector('input[id="username"]');
+        await page.type('input[id="username"]', String(this.config.login));
+        await page.waitForSelector('input[id="value"]');
+        await page.type('input[id="value"]', String(this.config.password));
+        await page.click('#submitDataverify');
+        await page.waitForNavigation();
 
-      // capture background requests
-      page.on('request', (request: HTTPRequest) => {
-        request.continue();
-      });
+        this.log.debug('Logged in!');
 
-      // capture background responses
-      page.on('response', async (response: HTTPResponse) => {
-        if (response.request().url().includes('energy-flow')) {
-          this.log.info('Getting update from FusionSolar...');
-          const responseData = await response.json();
-          const currentProduction = responseData.data.flow.nodes[0].value;
-          const batteryConsumption = responseData.data.flow.nodes[4].value;
-          const generalConsumption = responseData.data.flow.nodes[5].value;
+        // enable request interception
+        await page.setRequestInterception(true);
 
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[0].mocId] = {
-            code: 'current_production',
-            value: currentProduction,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId] = {
-            code: 'battery_consumption',
-            value: batteryConsumption,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId] = {
-            code: 'general_consumption',
-            value: generalConsumption,
-          };
+        // capture background requests
+        page.on('request', (request: HTTPRequest) => {
+          request.continue();
+        });
 
-          let gridImport = 0;
-          let gridExport = 0;
+        // capture background responses
+        page.on('response', async (response: HTTPResponse) => {
+          if (response.request().url().includes('energy-flow')) {
+            this.log.info('Getting update from FusionSolar...');
+            const responseData = await response.json();
+            const currentProduction = responseData.data.flow.nodes[0].value;
+            const batteryConsumption = responseData.data.flow.nodes[4].value;
+            const generalConsumption = responseData.data.flow.nodes[5].value;
 
-          //import from grid
-          if (generalConsumption > (currentProduction + batteryConsumption)) {
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[0].mocId] = {
+              code: 'current_production',
+              value: currentProduction,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId] = {
+              code: 'battery_consumption',
+              value: batteryConsumption,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId] = {
+              code: 'general_consumption',
+              value: generalConsumption,
+            };
+
+            let gridImport = 0;
+            let gridExport = 0;
+
             //import from grid
-            gridImport = generalConsumption - (currentProduction + batteryConsumption);
-          } else {
+            if (generalConsumption > (currentProduction + batteryConsumption)) {
+              //import from grid
+              gridImport = generalConsumption - (currentProduction + batteryConsumption);
+            } else {
+              //export to grid
+            }
+
             //export to grid
+            if (generalConsumption > (currentProduction + batteryConsumption)) {
+              //import from grid
+            } else {
+              //export to grid
+              gridExport = (currentProduction + batteryConsumption) - generalConsumption;
+            }
+
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId + '_1a'] = {
+              code: 'grid_import',
+              value: gridImport,
+            };
+
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId + '_1b'] = {
+              code: 'grid_export',
+              value: gridExport,
+            };
+
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_1'] = {
+              code: 'battery_percentage_capacity',
+              value: responseData.data.flow.nodes[4].deviceTips.SOC,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_2'] = {
+              code: 'battery_charge_capacity',
+              value: responseData.data.flow.nodes[4].deviceTips.CHARGE_CAPACITY,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_3'] = {
+              code: 'battery_discharge_capacity',
+              value: responseData.data.flow.nodes[4].deviceTips.DISCHARGE_CAPACITY,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_4'] = {
+              code: 'battery_power',
+              value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_5'] = {
+              code: 'battery_charging',
+              value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
+            };
+            this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_6'] = {
+              code: 'battery_discharging',
+              value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
+            };
+
+            console.log(this.pvData);
+            if (isFirstRun) {
+              this.discoverDevices();
+              isFirstRun = false;
+            }
           }
-
-          //export to grid
-          if (generalConsumption > (currentProduction + batteryConsumption)) {
-            //import from grid
-          } else {
-            //export to grid
-            gridExport = (currentProduction + batteryConsumption) - generalConsumption;
-          }
-
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId + '_1a'] = {
-            code: 'grid_import',
-            value: gridImport,
-          };
-
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[5].mocId + '_1b'] = {
-            code: 'grid_export',
-            value: gridExport,
-          };
-
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_1'] = {
-            code: 'battery_percentage_capacity',
-            value: responseData.data.flow.nodes[4].deviceTips.SOC,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_2'] = {
-            code: 'battery_charge_capacity',
-            value: responseData.data.flow.nodes[4].deviceTips.CHARGE_CAPACITY,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_3'] = {
-            code: 'battery_discharge_capacity',
-            value: responseData.data.flow.nodes[4].deviceTips.DISCHARGE_CAPACITY,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_4'] = {
-            code: 'battery_power',
-            value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_5'] = {
-            code: 'battery_charging',
-            value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
-          };
-          this.pvData['FUSIONSOLAR_' + responseData.data.flow.nodes[4].mocId + '_6'] = {
-            code: 'battery_discharging',
-            value: responseData.data.flow.nodes[4].deviceTips.BATTERY_POWER,
-          };
-
-          console.log(this.pvData);
-          if (isFirstRun) {
-            this.discoverDevices();
-            isFirstRun = false;
-          }
+        });
+      } catch (error) {
+        this.log.error(`Error during FusionSolar data fetch: ${error}`);
+        try {
+          await this.browser?.close();
+        } catch {
+          // ignore cleanup errors
         }
-      });
+      }
     })();
   }
 
